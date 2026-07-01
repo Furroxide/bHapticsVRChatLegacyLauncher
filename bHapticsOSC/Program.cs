@@ -142,6 +142,20 @@ namespace bHapticsOSC
             Console.WriteLine();
             Console.WriteLine();
 
+            Console.WriteLine($"===== VRChat - Punch =====");
+            Console.WriteLine();
+            Console.WriteLine($"[Enabled] = {VRChat.punch.Value.Enabled}");
+            Console.WriteLine($"[Ripple] = {VRChat.punch.Value.Ripple}");
+            Console.WriteLine($"[Strength] = {VRChat.punch.Value.Strength}");
+            Console.WriteLine($"[Duration] = {VRChat.punch.Value.Duration}");
+            Console.WriteLine($"[LightIntensity] = {VRChat.punch.Value.LightIntensity}");
+            Console.WriteLine($"[HardIntensity] = {VRChat.punch.Value.HardIntensity}");
+            Console.WriteLine($"[LightDurationMs] = {VRChat.punch.Value.LightDurationMs}");
+            Console.WriteLine($"[HardDurationMs] = {VRChat.punch.Value.HardDurationMs}");
+            Console.WriteLine($"[RippleDelayMs] = {VRChat.punch.Value.RippleDelayMs}");
+            Console.WriteLine();
+            Console.WriteLine();
+
             Console.WriteLine($"===== VRChat - Avatar OSC Config Reset =====");
             Console.WriteLine();
             Console.WriteLine($"[Enabled] = {VRChat.avatarOSCConfigReset.Value.Enabled}");
