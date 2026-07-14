@@ -7,6 +7,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Verify normalized line endings
+        shell: bash
+        run: |
+          git add --renormalize .
+          if ! git diff --cached --quiet; then
+            echo "Files are not normalized according to .gitattributes:"
+            git diff --cached --name-only
+            exit 1
+          fi
       - name: Setup .NET 5
         uses: actions/setup-dotnet@v2
         with:
