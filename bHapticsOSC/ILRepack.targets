@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="ILRepackSingleExecutable" AfterTargets="Build" Condition="'$(OutputType)' == 'Exe' And Exists('$(OutputPath)$(AssemblyName).exe')">
+    <ItemGroup>
+      <PrimaryAssembly Include="$(OutputPath)$(AssemblyName).exe" />
+      <MergeAssemblies Include="$(OutputPath)*.dll" />
+      <InputAssemblies Include="@(PrimaryAssembly)" />
+      <InputAssemblies Include="@(MergeAssemblies)" />
+    </ItemGroup>
+
+    <ILRepack
+      Parallel="true"
+      DebugInfo="$(DebugSymbols)"
+      InputAssemblies="@(InputAssemblies)"
+      TargetKind="SameAsPrimaryAssembly"
+      OutputFile="$(OutputPath)$(AssemblyName).exe"
+    />
+
+    <Delete Files="@(MergeAssemblies)" />
+  </Target>
+</Project>
