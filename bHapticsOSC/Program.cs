@@ -127,7 +127,8 @@ namespace bHapticsOSC
         private static void WelcomeMessage()
         {
             Console.WriteLine(Console.Title = $"{BuildInfo.Name} v{BuildInfo.Version}");
-            Console.WriteLine($"Created by Herp Derpinstine");
+            Console.WriteLine($"Created by {BuildInfo.Author}");
+            Console.WriteLine($"Maintained by {BuildInfo.Maintainer} ({BuildInfo.MaintainerLink})");
             Console.WriteLine();
             Console.WriteLine();
         }
