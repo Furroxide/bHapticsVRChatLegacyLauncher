@@ -13,7 +13,7 @@ namespace bHapticsOSC
 {
     internal class VRChatSupport : ThreadedTask
     {
-        private bool ShouldRun;
+        private volatile bool ShouldRun;
         private Dictionary<PositionID, Device> Devices = new Dictionary<PositionID, Device>();
         private bool AFK;
         private bool InStation;
@@ -29,6 +29,8 @@ namespace bHapticsOSC
         private float PunchDurationMenuValue = 1f;
 
         private const string AvatarParameterPrefix = "/avatar/parameters";
+        private const string V2ParameterPrefix = AvatarParameterPrefix + "/bOSC/v2";
+        private const string V2MobileParameterPrefix = AvatarParameterPrefix + "/bOSC/v2m";
         private const string PunchParameterPrefix = AvatarParameterPrefix + "/bOSC/v2/Punch";
         private const int PunchBandLight = 1;
         private const int PunchBandHard = 2;
@@ -38,22 +40,22 @@ namespace bHapticsOSC
         private const int PunchMaxPulses = 256;
         private static Tuple<int, PositionID, string, string>[] DeviceSchemes = new Tuple<int, PositionID, string, string>[]
         {
-            new Tuple<int, PositionID, string, string>(6, PositionID.Head, "bHapticsOSC_Head", string.Empty),
+            new Tuple<int, PositionID, string, string>(6, PositionID.Head, "bHapticsOSC_Head", "Head"),
 
-            new Tuple<int, PositionID, string, string>(20, PositionID.VestFront, "bHapticsOSC_Vest_Front", string.Empty),
-            new Tuple<int, PositionID, string, string>(20, PositionID.VestBack, "bHapticsOSC_Vest_Back", string.Empty),
+            new Tuple<int, PositionID, string, string>(20, PositionID.VestFront, "bHapticsOSC_Vest_Front", "VestFront"),
+            new Tuple<int, PositionID, string, string>(20, PositionID.VestBack, "bHapticsOSC_Vest_Back", "VestBack"),
 
-            new Tuple<int, PositionID, string, string>(6, PositionID.ArmLeft, "bHapticsOSC_Arm_Left", string.Empty),
-            new Tuple<int, PositionID, string, string>(6, PositionID.ArmRight, "bHapticsOSC_Arm_Right", string.Empty),
+            new Tuple<int, PositionID, string, string>(6, PositionID.ArmLeft, "bHapticsOSC_Arm_Left", "ForearmL"),
+            new Tuple<int, PositionID, string, string>(6, PositionID.ArmRight, "bHapticsOSC_Arm_Right", "ForearmR"),
 
-            new Tuple<int, PositionID, string, string>(3, PositionID.HandLeft, "bHapticsOSC_Hand_Left", string.Empty),
-            new Tuple<int, PositionID, string, string>(3, PositionID.HandRight, "bHapticsOSC_Hand_Right", string.Empty),
+            new Tuple<int, PositionID, string, string>(3, PositionID.HandLeft, "bHapticsOSC_Hand_Left", "HandL"),
+            new Tuple<int, PositionID, string, string>(3, PositionID.HandRight, "bHapticsOSC_Hand_Right", "HandR"),
 
             //new Tuple<int, PositionID, string, string>(0, PositionID.GloveLeft, "bHapticsOSC_Glove_Left", string.Empty),
             //new Tuple<int, PositionID, string, string>(0, PositionID.GloveRight, "bHapticsOSC_Glove_Right", string.Empty),
 
-            new Tuple<int, PositionID, string, string>(3, PositionID.FootLeft, "bHapticsOSC_Foot_Left", string.Empty),
-            new Tuple<int, PositionID, string, string>(3, PositionID.FootRight, "bHapticsOSC_Foot_Right", string.Empty),
+            new Tuple<int, PositionID, string, string>(3, PositionID.FootLeft, "bHapticsOSC_Foot_Left", "FootL"),
+            new Tuple<int, PositionID, string, string>(3, PositionID.FootRight, "bHapticsOSC_Foot_Right", "FootR"),
         };
 
         private class VRChatPacket { }
@@ -63,6 +65,7 @@ namespace bHapticsOSC
             internal PositionID position;
             internal int node;
             internal int intensity;
+            internal string source;
         }
         private ConcurrentQueue<VRChatPacket> PacketQueue = new ConcurrentQueue<VRChatPacket>();
         private List<PunchPulse> PunchPulses = new List<PunchPulse>();
@@ -135,11 +138,16 @@ namespace bHapticsOSC
                 for (int i = 0; i < nodeAddressesArr.Length; i++)
                 {
                     string path = nodeAddressesArr[i];
+                    string intensityPath = $"{path}_int";
+                    string boolPath = $"{path.Replace("bHapticsOSC_", "bHaptics_")}_bool";
                     int index = i + 1;
-                    OscManager.Attach(path, (OscMessage msg) => OnNode(msg, index, device.Item2));
-                    OscManager.Attach($"{path}_int", (OscMessage msg) => OnNodeIntensity(msg, index, device.Item2));
-                    OscManager.Attach($"{path.Replace("bHapticsOSC_", "bHaptics_")}_bool", (OscMessage msg) => OnNode(msg, index, device.Item2));
+                    OscManager.Attach(path, (OscMessage msg) => OnNode(msg, index, device.Item2, path));
+                    OscManager.Attach(intensityPath, (OscMessage msg) => OnNodeIntensity(msg, index, device.Item2, intensityPath));
+                    OscManager.Attach(boolPath, (OscMessage msg) => OnNode(msg, index, device.Item2, boolPath));
                 }
+
+                AttachV2DeviceParameters(V2ParameterPrefix, device.Item4, device.Item1, device.Item2);
+                AttachV2DeviceParameters(V2MobileParameterPrefix, device.Item4, device.Item1, device.Item2);
             }
 
             AttachPunchParameters();
@@ -172,6 +180,8 @@ namespace bHapticsOSC
                     {
                         PunchEnabledMenuSet = true;
                         PunchEnabledMenuValue = ((VRChatPacket_PunchEnabled)packet).value;
+                        if (!PunchEnabledMenuValue)
+                            PunchPulses.Clear();
                     }
                     else if (packet is VRChatPacket_PunchRipple)
                     {
@@ -192,6 +202,7 @@ namespace bHapticsOSC
                     {
                         ResetDevices();
                         PunchPulses.Clear();
+                        ResetPunchMenuState();
                         if (Program.VRChat.avatarOSCConfigReset.Value.Enabled)
                             VRCAvatarConfig.RemoveFile(((VRChatPacket_AvatarChange)packet).value);
                     }
@@ -203,7 +214,7 @@ namespace bHapticsOSC
                     else if (packet is VRChatPacket_Node)
                     {
                         VRChatPacket_Node nodePacket = (VRChatPacket_Node)packet;
-                        SetDeviceNodeIntensity(nodePacket.position, nodePacket.node, nodePacket.intensity);
+                        SetDeviceNodeIntensity(nodePacket.position, nodePacket.node, nodePacket.intensity, nodePacket.source);
                     }
                 }
 
@@ -231,6 +242,22 @@ namespace bHapticsOSC
             OscManager.Attach($"{PunchParameterPrefix}/Ripple", OnPunchRipple);
             OscManager.Attach($"{PunchParameterPrefix}/Strength", OnPunchStrength);
             OscManager.Attach($"{PunchParameterPrefix}/Duration", OnPunchDuration);
+        }
+
+        private static void AttachV2DeviceParameters(string prefix, string deviceName, int nodeCount, PositionID position)
+        {
+            if (string.IsNullOrWhiteSpace(deviceName))
+                return;
+
+            for (int node = 0; node < nodeCount; node++)
+            {
+                int bufferNode = node + 1;
+                string nodePrefix = $"{prefix}/{deviceName}/{node}";
+                string selfPath = $"{nodePrefix}/self";
+                string othersPath = $"{nodePrefix}/others";
+                OscManager.Attach(selfPath, (OscMessage msg) => OnNode(msg, bufferNode, position, selfPath));
+                OscManager.Attach(othersPath, (OscMessage msg) => OnNode(msg, bufferNode, position, othersPath));
+            }
         }
 
         private static void AttachPunchPanel(PositionID position, string panel)
@@ -303,27 +330,29 @@ namespace bHapticsOSC
                 Program.VRCSupport?.PacketQueue.Enqueue(new VRChatPacket_PunchDuration { value = value });
         }
 
-        private static void OnNode(OscMessage msg, int node, PositionID position)
+        private static void OnNode(OscMessage msg, int node, PositionID position, string source)
         {
-            if ((msg == null) || (!(msg[0] is bool)))
+            if (msg == null || msg.Count <= 0 || !(msg[0] is bool))
                 return;
             Program.VRCSupport?.PacketQueue.Enqueue(new VRChatPacket_Node
             {
                 position = position,
                 node = node,
                 intensity = ((bool)msg[0]) ? Program.Devices.PositionIDToIntensity(position) : 0,
+                source = source,
             });
         }
 
-        private static void OnNodeIntensity(OscMessage msg, int node, PositionID position)
+        private static void OnNodeIntensity(OscMessage msg, int node, PositionID position, string source)
         {
-            if ((msg == null) || (!(msg[0] is int)))
+            if (msg == null || msg.Count <= 0 || !(msg[0] is int))
                 return;
             Program.VRCSupport?.PacketQueue.Enqueue(new VRChatPacket_Node
             {
                 position = position,
                 node = node,
                 intensity = (int)msg[0],
+                source = source,
             });
         }
 
@@ -362,6 +391,9 @@ namespace bHapticsOSC
 
             if (msg[0] is float floatValue)
             {
+                if (float.IsNaN(floatValue) || float.IsInfinity(floatValue))
+                    return false;
+
                 value = floatValue;
                 return true;
             }
@@ -399,6 +431,18 @@ namespace bHapticsOSC
                 return;
             foreach (Device device in Devices.Values)
                 device.Reset();
+        }
+
+        private void ResetPunchMenuState()
+        {
+            PunchEnabledMenuSet = false;
+            PunchEnabledMenuValue = true;
+            PunchRippleMenuSet = false;
+            PunchRippleMenuValue = true;
+            PunchStrengthMenuSet = false;
+            PunchStrengthMenuValue = 1f;
+            PunchDurationMenuSet = false;
+            PunchDurationMenuValue = 1f;
         }
 
         private void RegisterPunch(PositionID position, int node, int band)
@@ -522,7 +566,7 @@ namespace bHapticsOSC
                 ? Program.VRChat.punch.Value.HardIntensity
                 : Program.VRChat.punch.Value.LightIntensity;
             float strength = Program.VRChat.punch.Value.Strength / 100f;
-            if (PunchStrengthMenuSet && PunchStrengthMenuValue > 0f)
+            if (PunchStrengthMenuSet)
                 strength *= PunchStrengthMenuValue;
             return (int)System.Math.Round(baseIntensity * strength);
         }
@@ -533,7 +577,7 @@ namespace bHapticsOSC
                 ? Program.VRChat.punch.Value.HardDurationMs
                 : Program.VRChat.punch.Value.LightDurationMs;
             float duration = Program.VRChat.punch.Value.Duration / 100f;
-            if (PunchDurationMenuSet && PunchDurationMenuValue > 0f)
+            if (PunchDurationMenuSet)
                 duration *= PunchDurationMenuValue;
             return System.Math.Max(1, (int)System.Math.Round(baseDuration * duration));
         }
@@ -549,11 +593,18 @@ namespace bHapticsOSC
         private static long NowMs()
             => PunchClock.ElapsedMilliseconds;
 
-        private void SetDeviceNodeIntensity(PositionID PositionID, int node, int intensity)
+        private void SetDeviceNodeIntensity(PositionID PositionID, int node, int intensity, string source)
         {
-            if ((Devices.Count <= 0) || !Devices.TryGetValue(PositionID, out Device device))
+            if (node < 1
+                || node > bHapticsManager.MaxMotorsPerDotPoint
+                || string.IsNullOrWhiteSpace(source)
+                || Devices.Count <= 0
+                || !Devices.TryGetValue(PositionID, out Device device))
+            {
                 return;
-            device.SetNodeIntensity(node, intensity);
+            }
+
+            device.SetNodeIntensity(source, node, intensity);
         }
 
         private static byte ToByteIntensity(int intensity)
@@ -564,6 +615,7 @@ namespace bHapticsOSC
             internal PositionID Position { get; }
             private byte[] Buffer = new byte[bHapticsManager.MaxMotorsPerDotPoint];
             private byte[] SubmitBuffer = new byte[bHapticsManager.MaxMotorsPerDotPoint];
+            private Dictionary<string, byte[]> SourceBuffers = new Dictionary<string, byte[]>();
 
             internal Device(PositionID position)
                 => Position = position;
@@ -603,13 +655,32 @@ namespace bHapticsOSC
             internal int GetNodeIntensity(int node)
                 => Buffer[node - 1];
 
-            internal void SetNodeIntensity(int node, int intensity)
-                => Buffer[node - 1] = ToByteIntensity(intensity);
+            internal void SetNodeIntensity(string source, int node, int intensity)
+            {
+                if (!SourceBuffers.TryGetValue(source, out byte[] sourceBuffer))
+                {
+                    sourceBuffer = new byte[bHapticsManager.MaxMotorsPerDotPoint];
+                    SourceBuffers[source] = sourceBuffer;
+                }
+
+                int index = node - 1;
+                sourceBuffer[index] = ToByteIntensity(intensity);
+
+                byte combinedIntensity = 0;
+                foreach (byte[] buffer in SourceBuffers.Values)
+                {
+                    if (buffer[index] > combinedIntensity)
+                        combinedIntensity = buffer[index];
+                }
+
+                Buffer[index] = combinedIntensity;
+            }
 
             internal void Reset()
             {
-                for (int i = 1; i < Buffer.Length + 1; i++)
-                    SetNodeIntensity(i, 0);
+                Array.Clear(Buffer, 0, Buffer.Length);
+                Array.Clear(SubmitBuffer, 0, SubmitBuffer.Length);
+                SourceBuffers.Clear();
             }
 
             /*
