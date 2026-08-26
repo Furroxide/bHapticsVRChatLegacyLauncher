@@ -41,4 +41,31 @@
     <ProjectReference Include="..\OscLib.VRChat\OscLib.VRChat.csproj" />
     <ProjectReference Include="..\OscLib\OscLib.csproj" />
   </ItemGroup>
+
+  <!--
+    Contact Compressor support.
+
+    The encode/decode maths lives in the parent repository and is compiled in from source rather
+    than reimplemented: it has to agree exactly with what the avatar emits, and a second
+    implementation would be free to drift. Source rather than a package reference because this
+    executable is ILRepacked into a single file, where every extra assembly is a packaging risk.
+
+    Guarded by Exists() so this project still builds on its own, outside the parent checkout - the
+    feature simply compiles out.
+  -->
+  <PropertyGroup>
+    <ContactCompressorCore>$(MSBuildThisFileDirectory)..\..\..\Unity\Packages\com.furroxide.contact-compressor\Runtime\Core</ContactCompressorCore>
+    <ContactCompressorDecoder>$(MSBuildThisFileDirectory)..\..\..\Decoder\Furroxide.ContactCompressor.Decoder</ContactCompressorDecoder>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="Exists('$(ContactCompressorCore)') And Exists('$(ContactCompressorDecoder)')">
+    <DefineConstants>$(DefineConstants);BHAPTICS_CONTACT_COMPRESSOR</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(ContactCompressorCore)') And Exists('$(ContactCompressorDecoder)')">
+    <Compile Include="$(ContactCompressorCore)\*.cs" Link="ContactCompressor\%(Filename)%(Extension)" />
+    <Compile Include="$(ContactCompressorDecoder)\ContactCompressorDecoder.cs" Link="ContactCompressor\ContactCompressorDecoder.cs" />
+    <Compile Include="$(ContactCompressorDecoder)\ManifestJson.cs" Link="ContactCompressor\ManifestJson.cs" />
+  </ItemGroup>
+
 </Project>

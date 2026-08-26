@@ -15,6 +15,9 @@ namespace bHapticsOSC
     {
         private volatile bool ShouldRun;
         private Dictionary<PositionID, Device> Devices = new Dictionary<PositionID, Device>();
+#if BHAPTICS_CONTACT_COMPRESSOR
+        private ContactCompression Compression;
+#endif
         private bool AFK;
         private bool InStation;
         private bool Seated;
@@ -151,6 +154,39 @@ namespace bHapticsOSC
             }
 
             AttachPunchParameters();
+            AttachContactCompression();
+        }
+
+        /// <summary>
+        /// Subscribes to a consolidated avatar's position parameters, if a manifest is present.
+        ///
+        /// Addresses come from the manifest rather than a fixed list, because a consolidated
+        /// avatar's parameters depend on how it was compressed - which regions exist and which
+        /// axes each one encodes.
+        /// </summary>
+        private void AttachContactCompression()
+        {
+#if BHAPTICS_CONTACT_COMPRESSOR
+            Dictionary<string, PositionID> deviceNames = new Dictionary<string, PositionID>(StringComparer.Ordinal);
+            foreach (Tuple<int, PositionID, string, string> device in DeviceSchemes)
+                deviceNames[device.Item4] = device.Item2;
+
+            Compression = ContactCompression.TryLoad(Program.ConfigFolder, deviceNames);
+            if (Compression == null)
+                return;
+
+            Compression.PrintSummary();
+
+            foreach (string address in Compression.OscAddresses)
+            {
+                string capture = address;
+                OscManager.Attach(capture, (OscMessage msg) =>
+                {
+                    if (TryReadFloat(msg, out float value))
+                        Compression.Accept(capture, value);
+                });
+            }
+#endif
         }
 
         public override bool BeginInitInternal()
@@ -201,6 +237,9 @@ namespace bHapticsOSC
                     else if (packet is VRChatPacket_AvatarChange)
                     {
                         ResetDevices();
+#if BHAPTICS_CONTACT_COMPRESSOR
+                        Compression?.Reset();
+#endif
                         PunchPulses.Clear();
                         ResetPunchMenuState();
                         if (Program.VRChat.avatarOSCConfigReset.Value.Enabled)
@@ -219,6 +258,9 @@ namespace bHapticsOSC
                 }
 
                 ExpirePunchPulses(NowMs());
+#if BHAPTICS_CONTACT_COMPRESSOR
+                Compression?.Apply(SetDeviceNodeIntensity, Program.Devices.PositionIDToIntensity);
+#endif
                 SubmitDevices();
 
                 if (ShouldRun)

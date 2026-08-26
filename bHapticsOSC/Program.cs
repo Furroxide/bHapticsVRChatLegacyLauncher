@@ -15,10 +15,14 @@ namespace bHapticsOSC
 
         internal static VRChatSupport VRCSupport = new VRChatSupport();
 
+        /// <summary>Folder holding the .cfg files, and the contact compressor manifest if there is one.</summary>
+        internal static string ConfigFolder { get; private set; }
+
         static Program()
         {
             string basefolder = Path.GetDirectoryName(typeof(Program).Assembly.Location);
             string configfolder = Path.Combine(basefolder, "Config");
+            ConfigFolder = configfolder;
             if (!Directory.Exists(configfolder))
                 Directory.CreateDirectory(configfolder);
 
