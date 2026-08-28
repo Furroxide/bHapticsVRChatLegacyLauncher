@@ -13,7 +13,12 @@ namespace bHapticsOSC
         internal static VRChatConfig VRChat;
         //internal static UdonAudioLinkConfig UdonAudioLink;
 
-        internal static VRChatSupport VRCSupport = new VRChatSupport();
+        // Assigned at the END of the static constructor, never as a field initializer. C# runs
+        // field initializers before the constructor body, and VRChatSupport's own constructor
+        // reads ConfigFolder and the configs below - so as an initializer it observed all of
+        // them as null and the process died in Path.Combine before Main ever ran. Every launch,
+        // on every machine, including the published 2.4.0.
+        internal static VRChatSupport VRCSupport;
 
         /// <summary>Folder holding the .cfg files, and the contact compressor manifest if there is one.</summary>
         internal static string ConfigFolder { get; private set; }
@@ -29,6 +34,8 @@ namespace bHapticsOSC
             Devices = ConfigManager.CreateConfig<DevicesConfig>(configfolder, nameof(Devices));
             //UdonAudioLink = ConfigManager.CreateConfig<UdonAudioLinkConfig>(configfolder, nameof(UdonAudioLink));
             VRChat = ConfigManager.CreateConfig<VRChatConfig>(configfolder, nameof(VRChat));
+
+            VRCSupport = new VRChatSupport();
         }
 
         internal static int Main(string[] args)

@@ -58,6 +58,14 @@ namespace bHapticsOSC
         /// </summary>
         internal static ContactCompression TryLoad(string configFolder, IDictionary<string, PositionID> deviceNames)
         {
+            // A missing folder means the same thing as a missing manifest: nothing to load. This
+            // guard exists because the one time this was handed null - Program's initialization
+            // order handing VRChatSupport a not-yet-set ConfigFolder - the Path.Combine below took
+            // the whole process down before Main ran, and a config lookup should never be able to
+            // do that again whatever the caller got wrong.
+            if (string.IsNullOrEmpty(configFolder))
+                return null;
+
             string path = Path.Combine(configFolder, ManifestFileName);
             if (!File.Exists(path))
                 return null;
