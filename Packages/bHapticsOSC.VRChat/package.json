@@ -2,7 +2,7 @@
 	"name" : "bHapticsOSC.VRChat",
 	"displayName" : "bHapticsOSC.VRChat",
 	"description" : "bHapticsOSC's VRChat Integration SDK",
-	"version" : "2.4.1",
+	"version" : "3.0.0",
     "gitDependencies" : {
         "com.vrchat.base" : "https://github.com/vrchat/com.vrchat.base.git",
         "com.vrchat.avatars" : "https://github.com/vrchat/com.vrchat.avatars.git"

@@ -7,7 +7,7 @@
         public const string Maintainer = "Furroxide";
         public const string MaintainerLink = "https://github.com/furroxide";
         public const string Company = "Lava Gang";
-        public const string Version = "2.4.1";
+        public const string Version = "3.0.0";
         public const string DownloadLink = "https://github.com/furroxide/bHapticsVRChat/releases/latest/download/bHapticsOSC.exe";
     }
 }
