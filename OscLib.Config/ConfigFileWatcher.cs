@@ -4,7 +4,7 @@ namespace OscLib.Config
 {
     internal class ConfigFileWatcher
     {
-        internal bool IgnoreEvents = false;
+        internal volatile bool IgnoreEvents = false;
         private ConfigFile File;
         private FileSystemWatcher Watcher;
 
@@ -22,21 +22,17 @@ namespace OscLib.Config
             string filepath = File.GetFilePath();
             Watcher = new FileSystemWatcher(Path.GetDirectoryName(filepath));
 
-            Watcher.NotifyFilter = NotifyFilters.Attributes
-                                 | NotifyFilters.CreationTime
-                                 | NotifyFilters.DirectoryName
-                                 | NotifyFilters.FileName
-                                 | NotifyFilters.LastAccess
+            Watcher.NotifyFilter = NotifyFilters.FileName
                                  | NotifyFilters.LastWrite
-                                 | NotifyFilters.Security
                                  | NotifyFilters.Size;
 
             Watcher.Changed += OnChanged;
+            Watcher.Created += OnChanged;
             Watcher.Renamed += OnRenamed;
             Watcher.Error += OnError;
 
             Watcher.Filter = Path.GetFileName(filepath);
-            Watcher.IncludeSubdirectories = true;
+            Watcher.IncludeSubdirectories = false;
             Watcher.EnableRaisingEvents = true;
         }
 
@@ -55,30 +51,19 @@ namespace OscLib.Config
             if (IgnoreEvents)
                 return;
 
-            switch (e.ChangeType)
-            {
-                case WatcherChangeTypes.Changed:
-                    File.Load();
-                    File.OnFileModified_SafeInvoke();
-                    break;
-
-                case WatcherChangeTypes.Deleted:
-                    File.Save();
-                    break;
-
-                default:
-                    break;
-            }
+            if (File.TryLoad(false))
+                File.OnFileModified_SafeInvoke();
         }
 
         private void OnRenamed(object sender, RenamedEventArgs e)
         {
             if (IgnoreEvents)
                 return;
-            File.Save();
+            if (File.TryLoad(false))
+                File.OnFileModified_SafeInvoke();
         }
 
         private void OnError(object sender, ErrorEventArgs e)
-            => throw e.GetException();
+            => File.ReportError("watch settings", e.GetException());
     }
 }

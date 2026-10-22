@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Keep the upstream net45 ABI used by bHapticsLib. netstandard2.1 lets the
+         regression suite exercise the same parser on current .NET. -->
+    <TargetFrameworks>net45;netstandard2.1</TargetFrameworks>
+    <LangVersion>10</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>WebSocketDotNet</AssemblyName>
+    <Version>0.5.5</Version>
+    <Authors>Sam Byass (Samboy063)</Authors>
+    <Company>N/A</Company>
+    <Title>WebSocket.NET</Title>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IsPackable>false</IsPackable>
+    <DefineConstants>$(DefineConstants);SUPPORTS_ASYNC;SUPPORTS_SPAN</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="IndexRange" Version="1.0.2" />
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+    <InternalsVisibleTo Include="Furroxide.ContactCompressor.Decoder.Tests" />
+    <!-- The release is a single ILRepacked EXE; retain notices in that artifact. -->
+    <EmbeddedResource Include="LICENSE" LogicalName="WebSocketDotNet.LICENSE" />
+    <EmbeddedResource Include="NOTICE.md" LogicalName="WebSocketDotNet.NOTICE" />
+  </ItemGroup>
+</Project>

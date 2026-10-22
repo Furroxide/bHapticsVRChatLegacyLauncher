@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using Tomlet;
 using Tomlet.Exceptions;
@@ -14,11 +13,18 @@ namespace OscLib.Config
         private static int UpdateRate = 100; // ms
         private ConfigFileWatcher Watcher;
         private TomlDocument Document = TomlDocument.CreateEmpty();
+        private readonly object SyncRoot = new object();
+        private bool RejectedFile;
+        private bool Initialized;
+        private string LastDiskText;
         public List<ConfigCategory> Categories = new List<ConfigCategory>();
 
         public Action OnFileModified;
         public void OnFileModified_SafeInvoke()
-            => OnFileModified?.Invoke();
+        {
+            try { OnFileModified?.Invoke(); }
+            catch (Exception ex) { ReportError("apply reloaded settings", ex); }
+        }
 
         private string FilePath;
         public string GetFilePath()
@@ -37,71 +43,111 @@ namespace OscLib.Config
         }
 
         public void Load()
+            => TryLoad(true);
+
+        internal bool TryLoad(bool createIfMissing)
         {
-            if (string.IsNullOrEmpty(FilePath))
-                return;
-            if (!File.Exists(FilePath))
+            lock (SyncRoot)
             {
-                Save();
-                return;
-            }
-
-            if (Watcher != null)
-                Watcher.IgnoreEvents = true;
-            Thread.Sleep(UpdateRate);
-
-            // Exception Catching
-            Document = TomlParser.ParseFile(FilePath);
-
-            Thread.Sleep(UpdateRate);
-            if (Watcher != null)
-                Watcher.IgnoreEvents = false;
-
-            if (Categories.Count > 0)
-                foreach (ConfigCategory category in Categories)
+                // The base constructor starts the watcher before derived classes add categories.
+                if (!createIfMissing && !Initialized)
+                    return false;
+                try
                 {
-                    if (!(TryGetCategoryTable(category.Name) is { } table))
+                    if (!File.Exists(FilePath))
                     {
-                        category.LoadDefaults();
-                        continue;
+                        // Editors may temporarily remove/rename a file while replacing it.
+                        // Only initial creation writes defaults; watcher callbacks never write.
+                        if (!createIfMissing)
+                            return false;
+                        RejectedFile = false;
+                        Save();
+                        return !RejectedFile;
                     }
 
-                    category.Load(table);
+                    Thread.Sleep(UpdateRate);
+                    string diskText = File.ReadAllText(FilePath);
+                    TomlDocument document = new TomlParser().Parse(diskText);
+                    var updates = new List<Action>();
+                    bool hasCategory = Categories.Count == 0;
+                    foreach (ConfigCategory category in Categories)
+                    {
+                        hasCategory |= document.ContainsKey(category.Name);
+                        TomlValue table = document.ContainsKey(category.Name)
+                            ? document.GetSubTable(category.Name)
+                            : null;
+                        updates.Add(category.PrepareLoad(table));
+                    }
+                    if (!hasCategory)
+                        throw new FormatException("The file has no recognized settings categories; it may still be being written.");
+
+                    foreach (Action update in updates)
+                        update();
+                    Document = document;
+                    LastDiskText = diskText;
+                    RejectedFile = false;
+                    return true;
                 }
+                catch (Exception ex)
+                {
+                    RejectedFile = true;
+                    ReportError("load settings; keeping defaults or the last valid values", ex);
+                    return false;
+                }
+                finally
+                {
+                    if (createIfMissing)
+                        Initialized = true;
+                }
+            }
         }
 
         public void Save()
         {
-            if (string.IsNullOrEmpty(FilePath))
-                return;
-
-            if (Categories.Count > 0)
-                foreach (ConfigCategory category in Categories)
-                    Document.PutValue(category.Name, category.Save());
-
-            if (Watcher != null)
-                Watcher.IgnoreEvents = true;
-            Thread.Sleep(UpdateRate);
-            File.WriteAllText(FilePath, Document.SerializedValue);
-            Thread.Sleep(UpdateRate);
-            if (Watcher != null)
-                Watcher.IgnoreEvents = false;
-        }
-
-        private TomlTable TryGetCategoryTable(string category)
-        {
-            lock (Document)
+            lock (SyncRoot)
             {
-                try { return Document.GetSubTable(category); }
-                catch (TomlTypeMismatchException) { }
-                catch (TomlNoSuchValueException) { }
+                // ProcessExit/SaveAll must not overwrite a rejected user file.
+                if (RejectedFile)
+                    return;
+                try
+                {
+                    foreach (ConfigCategory category in Categories)
+                        Document.PutValue(category.Name, category.Save());
 
-                return null;
+                    if (Watcher != null)
+                        Watcher.IgnoreEvents = true;
+                    string text = Document.SerializedValue;
+                    // SaveAll can run before the watcher has processed a user's edit. Check
+                    // immediately before writing and preserve pending edits or temporary renames.
+                    bool exists = File.Exists(FilePath);
+                    if ((exists && !string.Equals(File.ReadAllText(FilePath), LastDiskText, StringComparison.Ordinal))
+                        || (!exists && LastDiskText != null))
+                    {
+                        Console.WriteLine($"[Config] Not saving '{FilePath}': the file changed outside the application; keeping the pending edit.");
+                        return;
+                    }
+                    File.WriteAllText(FilePath, text);
+                    LastDiskText = text;
+                    Thread.Sleep(UpdateRate);
+                }
+                catch (Exception ex)
+                {
+                    RejectedFile = true;
+                    ReportError("save settings", ex);
+                }
+                finally
+                {
+                    if (Watcher != null)
+                        Watcher.IgnoreEvents = false;
+                }
             }
         }
 
+        internal void ReportError(string action, Exception ex)
+            => Console.WriteLine($"[Config] Could not {action} for '{FilePath}': {ex.GetBaseException().Message}");
+
         private static string QuoteKey(string key) =>
-          key.Contains('"')
+          key.IndexOf('"') >= 0
               ? $"'{key}'"
               : $"\"{key}\"";
 

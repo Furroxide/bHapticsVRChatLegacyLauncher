@@ -13,6 +13,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OscLib.Config", "OscLib.Con
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OscLib.Utils", "OscLib.Utils\OscLib.Utils.csproj", "{61B73CFC-EFD4-40C3-AE18-EC3C53B0689A}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ThirdParty", "ThirdParty", "{356D9C46-07F5-7F13-4EEF-5DD22B885BE8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSocketDotNet", "ThirdParty\WebSocketDotNet\WebSocketDotNet.csproj", "{D6E6EBD6-8830-4011-8670-8E5305557071}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,9 +43,16 @@ Global
 		{61B73CFC-EFD4-40C3-AE18-EC3C53B0689A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{61B73CFC-EFD4-40C3-AE18-EC3C53B0689A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{61B73CFC-EFD4-40C3-AE18-EC3C53B0689A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6E6EBD6-8830-4011-8670-8E5305557071}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6E6EBD6-8830-4011-8670-8E5305557071}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6E6EBD6-8830-4011-8670-8E5305557071}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6E6EBD6-8830-4011-8670-8E5305557071}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D6E6EBD6-8830-4011-8670-8E5305557071} = {356D9C46-07F5-7F13-4EEF-5DD22B885BE8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A41A138A-FF08-403A-B4EC-8B886EADF27B}

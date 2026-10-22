@@ -9,7 +9,8 @@ namespace OscLib.Config
         internal ConfigCategory(string name)
             => Name = name;
 
-        internal abstract void Load(TomlValue tomlValue);
+        // Validate and clamp every category before publishing any part of a new file.
+        internal abstract System.Action PrepareLoad(TomlValue tomlValue);
         internal abstract void LoadDefaults();
         internal abstract TomlValue Save();
     }
