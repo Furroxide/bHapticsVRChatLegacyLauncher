@@ -70,20 +70,21 @@ namespace bHapticsOSC
             if (!File.Exists(path))
                 return null;
 
-            ContactCompressorManifest manifest;
+            ContactCompression compression;
             try
             {
-                manifest = ManifestJson.Parse(File.ReadAllText(path));
+                var manifest = ManifestJson.Parse(File.ReadAllText(path));
+                // Construction also validates the wire version. A newer manifest must be
+                // ignored just like malformed JSON, rather than killing static app startup.
+                compression = new ContactCompression(manifest);
+                compression.MapMotors(deviceNames);
+                compression.CollectAddresses();
             }
             catch (Exception e)
             {
                 Console.WriteLine($"[ContactCompressor] Could not read {path}: {e.Message}");
                 return null;
             }
-
-            var compression = new ContactCompression(manifest);
-            compression.MapMotors(deviceNames);
-            compression.CollectAddresses();
 
             if (compression._motors.Count == 0)
             {
